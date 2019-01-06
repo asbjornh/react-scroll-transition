@@ -1,38 +1,24 @@
 const path = require("path");
-const ExtractTextPlugin = require("extract-text-webpack-plugin");
 const StaticSiteGeneratorPlugin = require("static-site-generator-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 module.exports = () => {
   return {
-    entry: {
-      index: ["./demo/index.js"]
+    devServer: {
+      disableHostCheck: true,
+      inline: false,
+      stats: "minimal"
     },
+    entry: { demo: "./demo/index.js" },
     output: {
       path: path.resolve(__dirname + "/build"),
       filename: "[name].js",
-      libraryTarget: "umd"
+      libraryTarget: "umd",
+      globalObject: "this"
     },
-    devServer: {
-      stats: "minimal",
-      inline: false
-    },
-    node: {
-      fs: "empty"
-    },
+    mode: "production",
     module: {
       rules: [
-        {
-          test: require.resolve("react"),
-          loader: "expose-loader?React"
-        },
-        {
-          test: require.resolve("react-dom"),
-          loader: "expose-loader?ReactDOM"
-        },
-        {
-          test: require.resolve("react-dom/server"),
-          loader: "expose-loader?ReactDOMServer"
-        },
         {
           test: /\.jsx?$/,
           exclude: /node_modules/,
@@ -41,14 +27,13 @@ module.exports = () => {
         {
           test: /\.css/,
           exclude: /node_modules/,
-          use: ExtractTextPlugin.extract([
+          use: [
+            MiniCssExtractPlugin.loader,
             {
               loader: "css-loader",
-              options: {
-                importLoaders: 1
-              }
+              options: { importLoaders: 1 }
             }
-          ])
+          ]
         }
       ]
     },
@@ -56,9 +41,9 @@ module.exports = () => {
       extensions: [".js", ".jsx"]
     },
     plugins: [
-      new ExtractTextPlugin("[name].[chunkhash].css"),
+      new MiniCssExtractPlugin({ filename: "style.css" }),
       new StaticSiteGeneratorPlugin({
-        entry: "index",
+        entry: "demo",
         paths: ["/"]
       })
     ]
