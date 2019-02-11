@@ -12,15 +12,18 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 class ScrollTransition extends React.Component {
   static propTypes = {
     children: PropTypes.func,
-    distance: PropTypes.number,
+    distance: PropTypes.func,
     easing: PropTypes.func,
-    start: PropTypes.number,
+    start: PropTypes.func,
+    onExit: PropTypes.bool,
     offset: PropTypes.number
   };
 
   static defaultProps = {
+    distance: (height, windowH) => height + windowH,
     easing: t => t,
-    offset: 0
+    offset: 0,
+    start: (top, height, windowH) => top - windowH
   };
 
   state = {
@@ -30,38 +33,45 @@ class ScrollTransition extends React.Component {
   };
 
   setProgress = () => {
-    const { state, props } = this;
+    const { elementHeight, elementTop } = this.state;
+    const windowH = window.innerHeight;
     const scrollPos = scrollingElement.scrollTop;
-    const startPos = props.start || state.elementTop;
-    const distance = props.distance || state.elementHeight;
-    const progress = (scrollPos - startPos - props.offset) / distance;
+    const startPos = this.props.start(elementTop, elementHeight, windowH);
+    const distance = this.props.distance(this.state.elementHeight, windowH);
 
-    // Often progress will be stuck at something like 0.999999. This ensures that progress is rounded up to 1 when transition is complete.
-    if (progress > 1 && this.state.progress !== 1) {
-      this.setState({ progress: 1 });
-      return;
-    }
+    const exitOffset = this.props.onExit ? windowH : 0;
+    const progress =
+      (scrollPos - startPos - this.props.offset - exitOffset) / distance;
 
     // Only set state when in transition range, to avoid calling setState excessively
-    if (progress >= 0 && progress <= 1) {
+    if (clamp(progress, 0, 1) !== this.state.progress) {
       this.setState({ progress: this.props.easing(clamp(progress, 0, 1)) });
     }
   };
 
-  measureElement = callback => {
+  measureElement = (callback = () => {}) => {
     const node = ReactDOM.findDOMNode(this);
 
     if (!node) return;
 
     const top = node.getBoundingClientRect().top;
-    const elementTop = top + scrollingElement.scrollTop - window.innerHeight;
+    const elementTop = top + scrollingElement.scrollTop;
     const elementHeight = node.offsetHeight;
 
-    this.setState({ elementHeight, elementTop }, callback);
+    if (
+      elementTop !== this.state.elementTop ||
+      elementHeight !== this.state.elementHeight
+    ) {
+      this.setState({ elementHeight, elementTop }, callback);
+    } else {
+      callback();
+    }
   };
 
   onScroll = () => {
-    this.setProgress();
+    this.measureElement(() => {
+      this.setProgress();
+    });
   };
 
   onResize = () => {
